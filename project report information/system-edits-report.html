@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>System Edits Browser — NMS Galactic Map</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #12151c; --border: #232733;
+    --text: #e7e9ee; --muted: #8b92a3;
+    --accent: #f0a500; --accent2: #00e5ff;
+    --good: #4caf7d; --warn: #e0a63a; --bad: #e0503a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, system-ui, sans-serif; padding: 32px 20px 60px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .refreshRow { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; font-size: 12px; color: var(--muted); }
+  .refreshRow button { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+  .refreshRow button:hover { color: var(--text); border-color: var(--accent2); }
+  .liveDot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); display: inline-block; box-shadow: 0 0 6px var(--good); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 24px; font-weight: 600; color: var(--accent2); }
+  .card .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 22px 0 10px; display: flex; align-items: center; gap: 10px; }
+  h2 .count { font-size: 12px; color: var(--accent2); text-transform: none; letter-spacing: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover td { background: rgba(255,255,255,0.03); }
+  tbody tr.open td { background: rgba(0,229,255,0.05); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.yellow { background: #f2d34d; } .dot.red { background: #e0503a; }
+  .dot.green { background: #4caf7d; } .dot.blue { background: #4a9fe0; }
+  .dot.purple { background: #b06ae0; } .dot.unknown { background: #555; }
+  .muted { color: var(--muted); }
+  .status { padding: 30px; text-align: center; color: var(--muted); }
+  .tablewrap { overflow: auto; border: 1px solid var(--border); border-radius: 10px; max-height: 560px; }
+  .tablewrap thead th { position: sticky; top: 0; background: #171b24; z-index: 1; }
+  code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 5px; margin: 1px 4px 1px 0; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .badge.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .badge.warn { color: var(--bg); background: var(--bad); border-color: var(--bad); cursor: help; font-weight: 600; }
+  .warnBox { grid-column: 1 / -1; background: rgba(224,80,58,0.1); border: 1px solid var(--bad); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 13px; }
+  .warnBox b { color: var(--bad); }
+  /* Flags can now carry up to 10 badges (outlaw/ruins/giant/black hole/dissonant/atlas/
+     water/colliding/phantom/shadow) -- let them flow together and wrap onto a line below
+     instead of forcing the whole row to scroll horizontally. */
+  td.flagsCell { white-space: normal; max-width: 260px; line-height: 1.9; padding-top: 6px; padding-bottom: 6px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 6px; align-items: center; }
+  .controls input[type=text] { flex: 1 1 200px; min-width: 140px; }
+  .controls input, .controls select {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit;
+  }
+  .controls input:focus, .controls select:focus { outline: 1px solid var(--accent2); }
+  .controls button { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .controls button:hover { color: var(--text); border-color: var(--accent2); }
+  .controls label.chk { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .controls label.chk input { margin: 0; }
+  .flagsDropdown { position: relative; }
+  .flagsBtn {
+    background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap;
+  }
+  .flagsBtn:hover, .flagsBtn.active { color: var(--text); border-color: var(--accent2); }
+  .flagsPanel {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 170px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  }
+  .flagsPanel[hidden] { display: none; }
+  .detailRow td { background: #0e1117; padding: 14px 18px; white-space: normal; }
+  .detailGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .detailGrid .notes { grid-column: 1 / -1; color: var(--text); font-size: 13px; }
+  .bodyList { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
+  .bodyList li { padding: 4px 0; border-bottom: 1px dashed var(--border); }
+  .bodyList .biome { color: var(--accent2); }
+  .bodyList .res { color: var(--muted); }
+  .empty-cell { color: #444; }
+  .unknown-cell { color: var(--muted); font-style: italic; }
+  .sortSel {
+    background: transparent; border: 1px solid var(--border); color: var(--accent2);
+    border-radius: 5px; padding: 1px 4px; font-size: 11px; font-family: inherit;
+    margin-left: 6px; cursor: pointer;
+  }
+  .sortSel:focus { outline: 1px solid var(--accent2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>System Edits Browser</h1>
+  <div class="sub">Every "Edit System" submission on your live site, read straight from <code>data/overrides.json</code> in <code>nms-galactic-map</code> on GitHub. Click a row for the full detail (notes, planets, resources).</div>
+  <div class="refreshRow">
+    <span class="liveDot"></span>
+    <span id="lastUpdated">Loading…</span>
+    <button id="refreshNow">Refresh now</button>
+  </div>
+
+  <div id="status" class="status">Loading live data from GitHub…</div>
+  <div id="content" style="display:none">
+    <div class="cards" id="cards"></div>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search name, address, notes, editor, region…">
+      <select id="nameFilter">
+        <option value="">Name: any</option>
+        <option value="named">Named</option>
+        <option value="unknown">Unknown (not named yet)</option>
+      </select>
+      <button id="clearFilters">Clear filters</button>
+      <select id="raceFilter"><option value="">All races</option></select>
+      <select id="colourFilter"><option value="">All star colours</option></select>
+      <select id="econFilter">
+        <option value="">Economy data: any</option>
+        <option value="yes">Has economy data</option>
+        <option value="no">No economy data</option>
+      </select>
+      <div class="flagsDropdown" id="flagsDropdown">
+        <button type="button" id="flagsToggle" class="flagsBtn">Flags ▾</button>
+        <div class="flagsPanel" id="flagsPanel" hidden>
+          <label class="chk"><input type="checkbox" id="fOutlaw"> Outlaw</label>
+          <label class="chk"><input type="checkbox" id="fRuins"> Ruins</label>
+          <label class="chk"><input type="checkbox" id="fGiant"> Gas giant</label>
+          <label class="chk"><input type="checkbox" id="fBlackHole"> Black hole</label>
+          <label class="chk"><input type="checkbox" id="fDissonant"> Dissonant</label>
+          <label class="chk"><input type="checkbox" id="fWater"> Water</label>
+          <label class="chk"><input type="checkbox" id="fColliding"> Colliding planets</label>
+          <label class="chk"><input type="checkbox" id="fPhantom"> Phantom star</label>
+          <label class="chk"><input type="checkbox" id="fShadow"> Shadow star</label>
+          <hr style="border:none;border-top:1px solid var(--border);margin:2px 0">
+          <label class="chk" title="Flags records whose own submitted data breaks a real in-game rule confirmed from this project's decompiled/corpus-verified generator: a black hole and Atlas station can never be the same system (a region's anomaly slots are always distinct indices), and a gas giant can only exist on a purple-star system. Ruins, Outlaw, Water, Dissonant, Colliding and Phantom/Shadow have no known real constraint, so they're never flagged."><input type="checkbox" id="fInconsistent"> ⚠ Inconsistent only</label>
+        </div>
+      </div>
+    </div>
+
+    <h2>Edited systems <span class="count" id="rowCount"></span></h2>
+    <div class="tablewrap"><table id="mainTable"><thead></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<script>
+const OVERRIDES_URL = "https://raw.githubusercontent.com/elegra1965-source/nms-galactic-map/main/data/overrides.json";
+const COLOURS = ["yellow","red","green","blue","purple"];
+const REFRESH_MS = 120000; // 2 minutes
+// Real in-game galaxy name list (index-matched), same 256 names used by preview.html's
+// own GALAXIES array -- lets this page show "1. Euclid" instead of just the raw index.
+const GALAXIES = ["Euclid", "Hilbert Dimension", "Calypso", "Hesperius Dimension", "Hyades", "Ickjamatew", "Budullangr", "Kikolgallr", "Eltiensleen", "Eissentam", "Elkupalos", "Aptarkaba", "Ontiniangp", "Odiwagiri", "Ogtialabi", "Muhacksonto", "Hitonskyer", "Rerasmutul", "Isdoraijung", "Doctinawyra", "Loychazinq", "Zukasizawa", "Ekwathore", "Yeberhahne", "Twerbetek", "Sivarates", "Eajerandal", "Aldukesci", "Wotyarogii", "Sudzerbal", "Maupenzhay", "Sugueziume", "Brogoweldian", "Ehbogdenbu", "Ijsenufryos", "Nipikulha", "Autsurabin", "Lusontrygiamh", "Rewmanawa", "Ethiophodhe", "Urastrykle", "Xobeurindj", "Oniijialdu", "Wucetosucc", "Ebyeloof", "Odyavanta", "Milekistri", "Waferganh", "Agnusopwit", "Teyaypilny", "Zalienkosm", "Ladgudiraf", "Mushonponte", "Amsentisz", "Fladiselm", "Laanawemb", "Ilkerloor", "Davanossi", "Ploehrliou", "Corpinyaya", "Leckandmeram", "Quulngais", "Nokokipsechl", "Rinblodesa", "Loydporpen", "Ibtrevskip", "Elkowaldb", "Heholhofsko", "Yebrilowisod", "Husalvangewi", "Ovna'uesed", "Bahibusey", "Nuybeliaure", "Doshawchuc", "Ruckinarkh", "Thorettac", "Nuponoparau", "Moglaschil", "Uiweupose", "Nasmilete", "Ekdaluskin", "Hakapanasy", "Dimonimba", "Cajaccari", "Olonerovo", "Umlanswick", "Henayliszm", "Utzenmate", "Umirpaiya", "Paholiang", "Iaereznika", "Yudukagath", "Boealalosnj", "Yaevarcko", "Coellosipp", "Wayndohalou", "Smoduraykl", "Apmaneessu", "Hicanpaav", "Akvasanta", "Tuychelisaor", "Rivskimbe", "Daksanquix", "Kissonlin", "Aediabiel", "Ulosaginyik", "Roclaytonycar", "Kichiaroa", "Irceauffey", "Nudquathsenfe", "Getaizakaal", "Hansolmien", "Bloytisagra", "Ladsenlay", "Luyugoslasr", "Ubredhatk", "Cidoniana", "Jasinessa", "Torweierf", "Saffneckm", "Thnistner", "Dotusingg", "Luleukous", "Jelmandan", "Otimanaso", "Enjaxusanto", "Sezviktorew", "Zikehpm", "Bephembah", "Broomerrai", "Meximicka", "Venessika", "Gaiteseling", "Zosakasiro", "Drajayanes", "Ooibekuar", "Urckiansi", "Dozivadido", "Emiekereks", "Meykinunukur", "Kimycuristh", "Roansfien", "Isgarmeso", "Daitibeli", "Gucuttarik", "Enlaythie", "Drewweste", "Akbulkabi", "Homskiw", "Zavainlani", "Jewijkmas", "Itlhotagra", "Podalicess", "Hiviusauer", "Halsebenk", "Puikitoac", "Gaybakuaria", "Grbodubhe", "Rycempler", "Indjalala", "Fontenikk", "Pasycihelwhee", "Ikbaksmit", "Telicianses", "Oyleyzhan", "Uagerosat", "Impoxectin", "Twoodmand", "Hilfsesorbs", "Ezdaranit", "Wiensanshe", "Ewheelonc", "Litzmantufa", "Emarmatosi", "Mufimbomacvi", "Wongquarum", "Hapirajua", "Igbinduina", "Wepaitvas", "Sthatigudi", "Yekathsebehn", "Ebedeagurst", "Nolisonia", "Ulexovitab", "Iodhinxois", "Irroswitzs", "Bifredait", "Beiraghedwe", "Yeonatlak", "Cugnatachh", "Nozoryenki", "Ebralduri", "Evcickcandj", "Ziybosswin", "Heperclait", "Sugiuniam", "Aaseertush", "Uglyestemaa", "Horeroedsh", "Drundemiso", "Ityanianat", "Purneyrine", "Dokiessmat", "Nupiacheh", "Dihewsonj", "Rudrailhik", "Tweretnort", "Snatreetze", "Iwundaracos", "Digarlewena", "Erquagsta", "Logovoloin", "Boyaghosganh", "Kuolungau", "Pehneldept", "Yevettiiqidcon", "Sahliacabru", "Noggalterpor", "Chmageaki", "Veticueca", "Vittesbursul", "Nootanore", "Innebdjerah", "Kisvarcini", "Cuzcogipper", "Pamanhermonsu", "Brotoghek", "Mibittara", "Huruahili", "Raldwicarn", "Ezdartlic", "Badesclema", "Isenkeyan", "Iadoitesu", "Yagrovoisi", "Ewcomechio", "Inunnunnoda", "Dischiutun", "Yuwarugha", "Ialmendra", "Reponudrle", "Rinjanagrbo", "Zeziceloh", "Oeileutasc", "Zicniijinis", "Dugnowarilda", "Neuxoisan", "Ilmenhorn", "Rukwatsuku", "Nepitzaspru", "Chcehoemig", "Haffneyrin", "Uliciawai", "Tuhgrespod", "Iousongola", "Odyalutai"];
+function galaxyLabel(idx) {
+  const n = Number(idx);
+  const name = GALAXIES[n];
+  return name ? `${n + 1}. ${name}` : `Galaxy ${n}`;
+}
+
+function inferColour(starClass) {
+  if (!starClass) return null;
+  const l = starClass.trim()[0];
+  if (l === "F" || l === "G") return "yellow";
+  if (l === "K" || l === "M") return "red";
+  if (l === "B" || l === "O") return "blue";
+  if (l === "E") return "green";
+  if (l === "X" || l === "Y") return "purple";
+  return null;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function cell(v) { return v ? esc(v) : '<span class="empty-cell">—</span>'; }
+// System names are the one field visitors will actually go fix later via Edit System, so
+// they get a readable, filterable "Unknown" placeholder instead of a plain dash — see the
+// 2026-08-23 conversation for why.
+function nameCell(v) { return v ? esc(v) : '<span class="unknown-cell">Unknown</span>'; }
+function fmtTime(d) { return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
+
+let ALL = [];
+let firstLoad = true;
+
+// Only two flag combinations are actually impossible in the real game, both
+// confirmed straight from this project's own corpus-verified generator code
+// (preview.html's regionAnomalyIdx() and the "purple systems only" gas_giant
+// gate) rather than guessed: a black hole and an Atlas station can never be
+// the same system (a region's anomaly slots always land on different system
+// indices), and a gas giant can only exist on a purple-star system. Every
+// other flag here (Ruins, Outlaw, Water, Dissonant, Colliding, Phantom/
+// Shadow) is either a fully independent random roll or a manual/traveller-
+// only field with "no procedural rule this project could find" -- see each
+// checkbox's own tooltip in the live Edit System form -- so none of those
+// combinations get flagged, however unlikely they look.
+function inconsistencyReasons(r) {
+  const reasons = [];
+  if (r.blackHole && r.atlas) {
+    reasons.push("Black hole + Atlas station: a region's black-hole and Atlas indices are always different systems, so one system can't be both.");
+  }
+  if (r.giant && r.starColour && r.starColour !== "purple") {
+    reasons.push(`Gas giant on a ${r.starColour} star: gas giants only occur on purple-star systems.`);
+  }
+  return reasons;
+}
+function isInconsistent(r) { return inconsistencyReasons(r).length > 0; }
+
+function badges(r) {
+  const b = [];
+  const warn = inconsistencyReasons(r);
+  if (warn.length) b.push(`<span class="badge warn" title="${esc(warn.join(" "))}">⚠ inconsistent</span>`);
+  if (r.outlaw) b.push('<span class="badge on">outlaw</span>');
+  if (r.ruins) b.push('<span class="badge on">ruins</span>');
+  if (r.giant) b.push('<span class="badge on">giant</span>');
+  if (r.blackHole) b.push('<span class="badge on">black hole</span>');
+  if (r.dissonant) b.push('<span class="badge on">dissonant</span>');
+  if (r.atlas) b.push('<span class="badge on">atlas</span>');
+  if (r.water) b.push('<span class="badge on">water</span>');
+  if (r.colliding) b.push('<span class="badge on">colliding</span>');
+  if (r.phantom === "phantom") b.push('<span class="badge on">phantom star</span>');
+  if (r.phantom === "shadow") b.push('<span class="badge on">shadow star</span>');
+  return b.join("") || '<span class="empty-cell">—</span>';
+}
+
+function phantomLabel(p) {
+  if (p === "phantom") return "Phantom Star (unreachable)";
+  if (p === "shadow") return "Shadow Star (reachable by hyperjump)";
+  return '<span class="empty-cell">none</span>';
+}
+
+function collidingLabel(r) {
+  if (!r.colliding) return '<span class="empty-cell">no</span>';
+  const bodies = r.bodies || [];
+  // collidingA/collidingB are 1-based indices into the bodies list, same convention
+  // as the "Colliding planets" dropdowns in Edit System on the live site.
+  const nameFor = (i) => {
+    const b = bodies[i - 1];
+    if (!b) return `#${i}`;
+    return esc(b.name || "unnamed") + (b.moon ? " (moon)" : "");
+  };
+  if (r.collidingA && r.collidingB) {
+    return `yes — ${nameFor(r.collidingA)} &harr; ${nameFor(r.collidingB)}`;
+  }
+  return "yes";
+}
+
+function detailHtml(r) {
+  const bodyList = r.bodies || [];
+  const planetCount = bodyList.filter(b => !b.moon).length;
+  const moonCount = bodyList.filter(b => b.moon).length;
+  const bodies = bodyList.map(b =>
+    `<li><b>${esc(b.name || "unnamed")}</b>${b.moon ? " (moon)" : ""} — <span class="biome">${esc(b.biome || "?")}</span>${b.water ? ", water" : ""} <span class="res">${(b.resources||[]).map(esc).join(", ")}</span></li>`
+  ).join("");
+  const warn = inconsistencyReasons(r);
+  const warnHtml = warn.length
+    ? `<div class="warnBox"><b>⚠ Inconsistent with the real game:</b><ul style="margin:6px 0 0;padding-left:18px">${warn.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>`
+    : "";
+  return `<div class="detailGrid">
+    ${warnHtml}
+    <div><b>Editor:</b> ${cell(r.editorName)} ${r.editorFriendCode ? `<span class="muted">(${esc(r.editorFriendCode)})</span>` : ""}</div>
+    <div><b>Address:</b> <code>${esc(r.galaxy)}:${esc(r.portalAddress)}</code> <span class="muted">(${esc(galaxyLabel(r.galaxy))})</span></div>
+    <div><b>Region:</b> ${cell(r.region)}</div>
+    <div><b>Phantom / Shadow Star status:</b> ${phantomLabel(r.phantom)}</div>
+    <div><b>Water:</b> ${r.water ? "yes" : "no"}</div>
+    <div><b>Dissonant:</b> ${r.dissonant ? "yes" : "no"}</div>
+    <div><b>Atlas station present:</b> ${r.atlas ? "yes" : "no"}</div>
+    <div><b>Colliding planets present:</b> ${collidingLabel(r)}</div>
+    <div class="notes"><b>Notes:</b> ${r.notes ? esc(r.notes) : '<span class="empty-cell">none</span>'}</div>
+    <div style="grid-column:1/-1"><b>Planets/moons (${planetCount} planet${planetCount === 1 ? "" : "s"}, ${moonCount} moon${moonCount === 1 ? "" : "s"} — names shown when recorded, not required):</b>
+      <ul class="bodyList">${bodies || '<li class="empty-cell">none recorded</li>'}</ul>
+    </div>
+  </div>`;
+}
+
+function matchesFilters(r, q, name, race, colour, econ, flags) {
+  if (name === "named" && !r.name) return false;
+  if (name === "unknown" && r.name) return false;
+  if (race && r.race !== race) return false;
+  if (colour && r.starColour !== colour) return false;
+  if (econ === "yes" && !r.hasEcon) return false;
+  if (econ === "no" && r.hasEcon) return false;
+  if (flags.outlaw && !r.outlaw) return false;
+  if (flags.ruins && !r.ruins) return false;
+  if (flags.giant && !r.giant) return false;
+  if (flags.blackHole && !r.blackHole) return false;
+  if (flags.dissonant && !r.dissonant) return false;
+  if (flags.water && !r.water) return false;
+  if (flags.colliding && !r.colliding) return false;
+  if (flags.phantom && r.phantom !== "phantom") return false;
+  if (flags.shadow && r.phantom !== "shadow") return false;
+  if (flags.inconsistent && !isInconsistent(r)) return false;
+  if (q) {
+    const hay = [r.name, r.portalAddress, r.notes, r.editorName, r.region, r.race, r.econName, r.conflict, r.galaxyName]
+      .join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+const FLAG_CHECKBOX_IDS = ["fOutlaw", "fRuins", "fGiant", "fBlackHole", "fDissonant", "fWater", "fColliding", "fPhantom", "fShadow", "fInconsistent"];
+
+function updateFlagsLabel() {
+  const n = FLAG_CHECKBOX_IDS.filter(id => document.getElementById(id).checked).length;
+  const btn = document.getElementById("flagsToggle");
+  btn.textContent = (n ? `Flags (${n})` : "Flags") + " ▾";
+  btn.classList.toggle("active", n > 0);
+}
+
+function applyFilters() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const name = document.getElementById("nameFilter").value;
+  const race = document.getElementById("raceFilter").value;
+  const colour = document.getElementById("colourFilter").value;
+  const econ = document.getElementById("econFilter").value;
+  const flags = {
+    outlaw: document.getElementById("fOutlaw").checked,
+    ruins: document.getElementById("fRuins").checked,
+    giant: document.getElementById("fGiant").checked,
+    blackHole: document.getElementById("fBlackHole").checked,
+    dissonant: document.getElementById("fDissonant").checked,
+    water: document.getElementById("fWater").checked,
+    colliding: document.getElementById("fColliding").checked,
+    phantom: document.getElementById("fPhantom").checked,
+    shadow: document.getElementById("fShadow").checked,
+    inconsistent: document.getElementById("fInconsistent").checked,
+  };
+  updateFlagsLabel();
+
+  const rows = ALL.filter(r => matchesFilters(r, q, name, race, colour, econ, flags));
+
+  const sortDir = document.getElementById("sortSystem") ? document.getElementById("sortSystem").value : "";
+  if (sortDir) {
+    rows.sort((a, b) => {
+      const cmp = (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base", numeric: true });
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }
+
+  document.getElementById("rowCount").textContent = `${rows.length} of ${ALL.length}`;
+
+  const tbody = document.querySelector("#mainTable tbody");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="muted" style="padding:16px">No matches.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr class="mainRow" data-idx="${i}">
+      <td>${nameCell(r.name)}</td>
+      <td>${esc(r.galaxyName)}</td>
+      <td><code>${esc(r.galaxy)}:${esc(r.portalAddress)}</code></td>
+      <td>${cell(r.race)}</td>
+      <td>${r.econName ? `${esc(r.econName)}${r.econDesc ? ` <span class="muted">(${esc(r.econDesc)})</span>` : ""}` : '<span class="empty-cell">—</span>'}</td>
+      <td>${cell(r.conflict)}</td>
+      <td>${r.starClass ? `${esc(r.starClass)} — <span class="dot ${esc(r.starColour||'unknown')}"></span>${esc(r.starColour||'?')}` : '<span class="empty-cell">—</span>'}</td>
+      <td>${cell(r.region)}</td>
+      <td class="flagsCell">${badges(r)}</td>
+      <td>${cell(r.editorName)}</td>
+    </tr>`).join("");
+
+  tbody.querySelectorAll("tr.mainRow").forEach(tr => {
+    tr.addEventListener("click", () => {
+      const idx = Number(tr.dataset.idx);
+      const existing = tr.nextElementSibling;
+      if (existing && existing.classList.contains("detailRow")) {
+        existing.remove(); tr.classList.remove("open"); return;
+      }
+      document.querySelectorAll(".detailRow").forEach(d => d.remove());
+      document.querySelectorAll("tr.mainRow.open").forEach(o => o.classList.remove("open"));
+      tr.classList.add("open");
+      const detail = document.createElement("tr");
+      detail.className = "detailRow";
+      detail.innerHTML = `<td colspan="10">${detailHtml(rows[idx])}</td>`;
+      tr.after(detail);
+    });
+  });
+}
+
+function populateSelect(id, values, defaultLabel) {
+  const sel = document.getElementById(id);
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">${esc(defaultLabel)}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  if (values.includes(prev)) sel.value = prev;
+}
+
+async function loadData(isManual) {
+  const lu = document.getElementById("lastUpdated");
+  if (isManual) lu.textContent = "Refreshing…";
+  let raw;
+  try {
+    const res = await fetch(OVERRIDES_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    raw = await res.json();
+  } catch (err) {
+    if (firstLoad) {
+      document.getElementById("status").textContent =
+        "Couldn't reach GitHub (" + err.message + "). Check your internet connection, or the repo may have gone Private (this page needs it Public to read without a token).";
+    } else {
+      lu.textContent = "Refresh failed (" + err.message + ") — showing last good data.";
+    }
+    return;
+  }
+
+  const systems = raw.systems || {};
+  ALL = Object.entries(systems).map(([key, entry]) => {
+    const data = entry.data || {};
+    const [galaxy, portalAddress] = key.split(":");
+    const hasEcon = !!(data.race || data.econName || data.conflict);
+    return {
+      key, galaxy, portalAddress, galaxyName: galaxyLabel(galaxy),
+      name: data.name || "", race: data.race || "",
+      econName: data.econName || "", econDesc: data.econDesc || "",
+      sell: data.sell ?? "", buy: data.buy ?? "", conflict: data.conflict || "",
+      starClass: data.starClass || "",
+      starColour: (data.stars && data.stars[0]) || inferColour(data.starClass) || null,
+      region: data.region || "", notes: data.notes || "",
+      editorName: data.editorName || "", editorFriendCode: data.editorFriendCode || "",
+      outlaw: !!data.outlaw, ruins: !!data.ruins, giant: !!data.giant,
+      blackHole: !!data.blackHole, dissonant: !!data.dissonant, atlas: !!data.atlas,
+      water: !!data.water, colliding: !!data.colliding,
+      collidingA: data.collidingA || 0, collidingB: data.collidingB || 0,
+      phantom: data.phantom || "", // "" | "phantom" | "shadow"
+      bodies: data.bodies || [],
+      editedAt: entry.editedAt || "",
+      hasEcon,
+    };
+  });
+
+  document.getElementById("status").style.display = "none";
+  document.getElementById("content").style.display = "block";
+
+  const withEcon = ALL.filter(r => r.hasEcon).length;
+  const withNotes = ALL.filter(r => r.notes).length;
+  const editors = new Set(ALL.map(r => r.editorName).filter(Boolean)).size;
+  const inconsistentCount = ALL.filter(isInconsistent).length;
+
+  document.getElementById("cards").innerHTML = [
+    { num: ALL.length, label: "Total edited systems" },
+    { num: withEcon, label: "With race/economy/conflict" },
+    { num: withNotes, label: "With notes" },
+    { num: editors, label: "Distinct editors" },
+    { num: inconsistentCount, label: "⚠ Flagged inconsistent", warn: inconsistentCount > 0 },
+  ].map(c => `<div class="card"><div class="num" ${c.warn ? 'style="color:var(--bad)"' : ""}>${c.num}</div><div class="label">${c.label}</div></div>`).join("");
+
+  populateSelect("raceFilter", [...new Set(ALL.map(r => r.race).filter(Boolean))].sort(), "All races");
+  populateSelect("colourFilter", COLOURS, "All star colours");
+
+  if (firstLoad) {
+    document.querySelector("#mainTable thead").innerHTML = `<tr>
+      <th>System <select id="sortSystem" class="sortSel" title="Sort by system name">
+        <option value="">↕ sort</option>
+        <option value="asc">A → Z</option>
+        <option value="desc">Z → A</option>
+      </select></th>
+      <th>Galaxy</th>
+      <th>Address</th><th>Race</th><th>Economy</th><th>Conflict</th>
+      <th>Star</th><th>Region</th><th>Flags</th><th>Editor</th></tr>`;
+
+    ["search"].forEach(id => document.getElementById(id).addEventListener("input", applyFilters));
+    ["nameFilter","raceFilter","colourFilter","econFilter", ...FLAG_CHECKBOX_IDS, "sortSystem"].forEach(id =>
+      document.getElementById(id).addEventListener("change", applyFilters));
+    document.getElementById("clearFilters").addEventListener("click", () => {
+      document.getElementById("search").value = "";
+      document.getElementById("nameFilter").value = "";
+      document.getElementById("raceFilter").value = ""; document.getElementById("colourFilter").value = "";
+      document.getElementById("econFilter").value = "";
+      document.getElementById("sortSystem").value = "";
+      FLAG_CHECKBOX_IDS.forEach(id => document.getElementById(id).checked = false);
+      applyFilters();
+    });
+    document.getElementById("refreshNow").addEventListener("click", () => loadData(true));
+
+    const flagsToggle = document.getElementById("flagsToggle");
+    const flagsPanel = document.getElementById("flagsPanel");
+    flagsToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      flagsPanel.hidden = !flagsPanel.hidden;
+    });
+    document.addEventListener("click", (e) => {
+      if (!flagsPanel.hidden && !document.getElementById("flagsDropdown").contains(e.target)) {
+        flagsPanel.hidden = true;
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") flagsPanel.hidden = true;
+    });
+
+    firstLoad = false;
+  }
+
+  applyFilters();
+  lu.textContent = "Last updated " + fmtTime(new Date()) + " · auto-refreshes every 2 min";
+}
+
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadData(false); });
+setInterval(() => { if (!document.hidden) loadData(false); }, REFRESH_MS);
+
+loadData(false);
+</script>
+</body>
+</html>

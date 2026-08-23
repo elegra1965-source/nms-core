@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Economy Corpus Report — NMS Galactic Map</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #12151c; --border: #232733;
+    --text: #e7e9ee; --muted: #8b92a3;
+    --accent: #f0a500; --accent2: #00e5ff;
+    --good: #4caf7d; --warn: #e0a63a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, system-ui, sans-serif; padding: 32px 20px 60px; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .refreshRow { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; font-size: 12px; color: var(--muted); }
+  .refreshRow button { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+  .refreshRow button:hover { color: var(--text); border-color: var(--accent2); }
+  .liveDot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); display: inline-block; box-shadow: 0 0 6px var(--good); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card .num { font-size: 26px; font-weight: 600; color: var(--accent2); }
+  .card .label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .banner { border-radius: 10px; padding: 14px 18px; margin: 20px 0 28px; font-size: 14px; line-height: 1.5; border: 1px solid var(--border); }
+  .banner.warn { background: rgba(224,166,58,0.08); border-color: rgba(224,166,58,0.4); color: var(--warn); }
+  .banner.good { background: rgba(76,175,125,0.08); border-color: rgba(76,175,125,0.4); color: var(--good); }
+  h2 { font-size: 15px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 28px 0 10px; display: flex; align-items: center; gap: 10px; }
+  h2 .count { font-size: 12px; color: var(--accent2); text-transform: none; letter-spacing: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.yellow { background: #f2d34d; } .dot.red { background: #e0503a; }
+  .dot.green { background: #4caf7d; } .dot.blue { background: #4a9fe0; }
+  .dot.purple { background: #b06ae0; } .dot.unknown { background: #555; }
+  .muted { color: var(--muted); }
+  .status { padding: 30px; text-align: center; color: var(--muted); }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; max-height: 420px; overflow-y: auto; }
+  .tablewrap thead th { position: sticky; top: 0; background: #171b24; z-index: 1; }
+  code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 6px; }
+  .controls input[type=text] { flex: 1 1 220px; }
+  .controls input, .controls select {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: inherit;
+  }
+  .controls input:focus, .controls select:focus { outline: 1px solid var(--accent2); }
+  .controls button { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 12px; font-size: 12px; cursor: pointer; }
+  .controls button:hover { color: var(--text); border-color: var(--accent2); }
+  .bellBtn { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; margin-left: auto; }
+  .bellBtn:hover { color: var(--text); border-color: var(--accent2); }
+  .bellBtn.on { color: var(--good); border-color: var(--good); }
+  .modalOverlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; z-index: 50;
+  }
+  .modalOverlay.show { display: flex; }
+  .modalCard {
+    background: var(--panel); border: 1px solid var(--good); border-radius: 14px;
+    padding: 28px 32px; max-width: 440px; text-align: center;
+    box-shadow: 0 0 40px rgba(76,175,125,0.25);
+  }
+  .modalCard h3 { margin: 0 0 10px; font-size: 18px; color: var(--good); }
+  .modalCard p { margin: 0 0 20px; font-size: 13px; color: var(--text); line-height: 1.6; }
+  .modalCard button { background: var(--good); border: none; color: #04140c; font-weight: 600; border-radius: 8px; padding: 9px 22px; font-size: 13px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Economy Corpus Report</h1>
+  <div class="sub">Live read of <code>data/overrides.json</code> from your <code>nms-galactic-map</code> GitHub repo.</div>
+  <div class="refreshRow">
+    <span class="liveDot"></span>
+    <span id="lastUpdated">Loading…</span>
+    <button id="refreshNow">Refresh now</button>
+    <button id="bellBtn" class="bellBtn" title="Get a desktop notification the moment the corpus is ready to fit">🔔 Enable desktop alert</button>
+  </div>
+
+  <div class="modalOverlay" id="readyModal">
+    <div class="modalCard">
+      <h3>🎉 Corpus is ready</h3>
+      <p id="readyModalText"></p>
+      <button id="readyModalDismiss">Got it</button>
+    </div>
+  </div>
+
+  <div id="status" class="status">Loading live data from GitHub…</div>
+  <div id="content" style="display:none">
+    <div class="cards" id="cards"></div>
+    <div id="banner"></div>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search name, address, race, economy, conflict…">
+      <select id="raceFilter"><option value="">All races</option></select>
+      <select id="colourFilter"><option value="">All star colours</option></select>
+      <button id="clearFilters">Clear filters</button>
+    </div>
+
+    <h2>Complete records (ready for the economy.js fit) <span class="count" id="completeCount"></span></h2>
+    <div class="tablewrap"><table id="completeTable"><thead></thead><tbody></tbody></table></div>
+    <h2>Partial records (race/economy-type/conflict only — not yet usable for the fit) <span class="count" id="partialCount"></span></h2>
+    <div class="tablewrap"><table id="partialTable"><thead></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<script>
+const OVERRIDES_URL = "https://raw.githubusercontent.com/elegra1965-source/nms-galactic-map/main/data/overrides.json";
+const COMPLETE_FIELDS = ["race","econName","econDesc","sell","buy","conflict"];
+const MIN_COMPLETE_FOR_FIT = 30;
+const MIN_PER_COLOUR = 5;
+const COLOURS = ["yellow","red","green","blue","purple"];
+const REFRESH_MS = 120000; // 2 minutes
+
+function inferColour(starClass) {
+  if (!starClass) return null;
+  const l = starClass.trim()[0];
+  if (l === "F" || l === "G") return "yellow";
+  if (l === "K" || l === "M") return "red";
+  if (l === "B" || l === "O") return "blue";
+  if (l === "E") return "green";
+  if (l === "X" || l === "Y") return "purple";
+  return null;
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtTime(d) { return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
+
+function renderTable(el, rows, cols) {
+  const thead = el.querySelector("thead"), tbody = el.querySelector("tbody");
+  thead.innerHTML = "<tr>" + cols.map(c => `<th>${esc(c.label)}</th>`).join("") + "</tr>";
+  if (!rows.length) { tbody.innerHTML = `<tr><td colspan="${cols.length}" class="muted">No matches.</td></tr>`; return; }
+  tbody.innerHTML = rows.map(r => "<tr>" + cols.map(c => `<td>${c.render ? c.render(r) : esc(r[c.key])}</td>`).join("") + "</tr>").join("");
+}
+
+let ALL_COMPLETE = [], ALL_PARTIAL = [];
+let firstLoad = true;
+let alreadyAlerted = false; // in-memory only, resets on reload — intentional, no localStorage on a page rendered in-conversation
+
+function fireReadyAlert(completeCount, coloursText) {
+  if (alreadyAlerted) return;
+  alreadyAlerted = true;
+
+  const msg = `${completeCount} complete records across all 5 star colours (${coloursText}). Time to run the economy.js fit.`;
+  document.getElementById("readyModalText").textContent = msg;
+  document.getElementById("readyModal").classList.add("show");
+
+  if (window.Notification && Notification.permission === "granted") {
+    new Notification("NMS economy corpus ready", { body: msg });
+  }
+}
+
+document.getElementById("readyModalDismiss").addEventListener("click", () => {
+  document.getElementById("readyModal").classList.remove("show");
+});
+
+document.getElementById("bellBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("bellBtn");
+  if (!window.Notification) { btn.textContent = "Notifications not supported"; return; }
+  if (Notification.permission === "granted") { btn.textContent = "🔔 Desktop alerts on"; btn.classList.add("on"); return; }
+  const perm = await Notification.requestPermission();
+  if (perm === "granted") { btn.textContent = "🔔 Desktop alerts on"; btn.classList.add("on"); }
+  else { btn.textContent = "🔕 Permission denied — check browser settings"; }
+});
+
+function matchesFilters(r, q, race, colour) {
+  if (race && r.race !== race) return false;
+  if (colour && r.starColour !== colour) return false;
+  if (q) {
+    const hay = [r.name, r.portalAddress, r.race, r.econName, r.econDesc, r.conflict, r.starClass].join(" ").toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function applyFilters() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const race = document.getElementById("raceFilter").value;
+  const colour = document.getElementById("colourFilter").value;
+
+  const complete = ALL_COMPLETE.filter(r => matchesFilters(r, q, race, colour));
+  const partial = ALL_PARTIAL.filter(r => matchesFilters(r, q, race, colour));
+
+  document.getElementById("completeCount").textContent = `${complete.length} of ${ALL_COMPLETE.length}`;
+  document.getElementById("partialCount").textContent = `${partial.length} of ${ALL_PARTIAL.length}`;
+
+  const colourDot = r => `<span class="dot ${esc(r.starColour)}"></span>${esc(r.starColour)}`;
+
+  renderTable(document.getElementById("completeTable"), complete, [
+    { label: "System", key: "name" },
+    { label: "Address", render: r => `<code>${esc(r.galaxy)}:${esc(r.portalAddress)}</code>` },
+    { label: "Race", key: "race" },
+    { label: "Economy", render: r => `${esc(r.econName)} <span class="muted">(${esc(r.econDesc)})</span>` },
+    { label: "Sell%", key: "sell" },
+    { label: "Buy%", key: "buy" },
+    { label: "Conflict", key: "conflict" },
+    { label: "Star", render: r => `${esc(r.starClass)} — ${colourDot(r)}` },
+    { label: "Edited", render: r => esc((r.editedAt||"").slice(0,10)) },
+  ]);
+
+  renderTable(document.getElementById("partialTable"), partial, [
+    { label: "System", key: "name" },
+    { label: "Address", render: r => `<code>${esc(r.galaxy)}:${esc(r.portalAddress)}</code>` },
+    { label: "Race", key: "race" },
+    { label: "Economy", key: "econName" },
+    { label: "Conflict", key: "conflict" },
+    { label: "Edited", render: r => esc((r.editedAt||"").slice(0,10)) },
+  ]);
+}
+
+function populateSelect(id, values, defaultLabel) {
+  const sel = document.getElementById(id);
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">${esc(defaultLabel)}</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  if (values.includes(prev)) sel.value = prev;
+}
+
+async function loadData(isManual) {
+  const lu = document.getElementById("lastUpdated");
+  if (isManual) lu.textContent = "Refreshing…";
+  let raw;
+  try {
+    const res = await fetch(OVERRIDES_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status + " " + res.statusText);
+    raw = await res.json();
+  } catch (err) {
+    if (firstLoad) {
+      document.getElementById("status").textContent =
+        "Couldn't reach GitHub (" + err.message + "). Check your internet connection, or the repo may have gone Private (this page needs it Public to read without a token).";
+    } else {
+      lu.textContent = "Refresh failed (" + err.message + ") — showing last good data.";
+    }
+    return;
+  }
+
+  const systems = raw.systems || {};
+  const records = [];
+  for (const [key, entry] of Object.entries(systems)) {
+    const data = entry.data || {};
+    if (!data.race && !data.econName && !data.conflict) continue;
+    const [galaxy, portalAddress] = key.split(":");
+    records.push({
+      key, galaxy, portalAddress,
+      name: data.name || "", race: data.race || "",
+      econName: data.econName || "", econDesc: data.econDesc || "",
+      sell: data.sell ?? "", buy: data.buy ?? "", conflict: data.conflict || "",
+      starClass: data.starClass || "",
+      starColour: (data.stars && data.stars[0]) || inferColour(data.starClass) || "unknown",
+      editedAt: entry.editedAt || "",
+    });
+  }
+
+  ALL_COMPLETE = records.filter(r => COMPLETE_FIELDS.every(f => r[f] !== "" && r[f] !== null));
+  ALL_PARTIAL = records.filter(r => !ALL_COMPLETE.includes(r));
+
+  const byColour = {};
+  for (const r of ALL_COMPLETE) byColour[r.starColour] = (byColour[r.starColour] || 0) + 1;
+
+  document.getElementById("status").style.display = "none";
+  document.getElementById("content").style.display = "block";
+
+  document.getElementById("cards").innerHTML = [
+    { num: records.length, label: "Total edited systems" },
+    { num: ALL_COMPLETE.length, label: "Complete (usable for fit)" },
+    { num: ALL_PARTIAL.length, label: "Partial (race/econ/conflict only)" },
+    { num: COLOURS.filter(c => (byColour[c]||0) >= MIN_PER_COLOUR).length + " / 5", label: "Star colours with ≥" + MIN_PER_COLOUR + " samples" },
+  ].map(c => `<div class="card"><div class="num">${c.num}</div><div class="label">${c.label}</div></div>`).join("");
+
+  const missing = COLOURS.filter(c => (byColour[c] || 0) < MIN_PER_COLOUR);
+  const banner = document.getElementById("banner");
+  if (ALL_COMPLETE.length < MIN_COMPLETE_FOR_FIT) {
+    banner.className = "banner warn";
+    banner.innerHTML = `<b>Not ready yet:</b> ${ALL_COMPLETE.length}/${MIN_COMPLETE_FOR_FIT} complete records. Keep encouraging full Edit System submissions (and screenshots) before refitting economy.js's thresholds off this.`;
+  } else if (missing.length) {
+    banner.className = "banner warn";
+    banner.innerHTML = `<b>Count is there, but colours are uneven:</b> still under ${MIN_PER_COLOUR} samples for ${missing.join(", ")}. A fit now would just extrapolate onto colours with no evidence.`;
+  } else {
+    banner.className = "banner good";
+    banner.innerHTML = `<b>Ready:</b> ${ALL_COMPLETE.length} complete records across all 5 star colours. Worth asking to actually run the economy.js fit now.`;
+    fireReadyAlert(ALL_COMPLETE.length, COLOURS.map(c => `${c}: ${byColour[c]||0}`).join(", "));
+  }
+
+  populateSelect("raceFilter", [...new Set(records.map(r => r.race).filter(Boolean))].sort(), "All races");
+  populateSelect("colourFilter", COLOURS, "All star colours");
+
+  if (firstLoad) {
+    document.getElementById("search").addEventListener("input", applyFilters);
+    document.getElementById("raceFilter").addEventListener("change", applyFilters);
+    document.getElementById("colourFilter").addEventListener("change", applyFilters);
+    document.getElementById("clearFilters").addEventListener("click", () => {
+      document.getElementById("search").value = "";
+      document.getElementById("raceFilter").value = ""; document.getElementById("colourFilter").value = "";
+      applyFilters();
+    });
+    firstLoad = false;
+  }
+
+  applyFilters();
+  lu.textContent = "Last updated " + fmtTime(new Date()) + " · auto-refreshes every 2 min";
+}
+
+document.getElementById("refreshNow").addEventListener("click", () => loadData(true));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) loadData(false); });
+setInterval(() => { if (!document.hidden) loadData(false); }, REFRESH_MS);
+
+loadData(false);
+</script>
+</body>
+</html>

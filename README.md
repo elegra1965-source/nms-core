@@ -160,6 +160,25 @@ limitations" below and `planet.js`'s own header comment for why.
 
 ---
 
+## Independent check against Voyager's Haven (2026-10-02)
+
+`systemAttributes()` was cross-checked against ~29,000 real player-recorded systems from [Voyager's Haven](https://havenmap.online) (u/IAmThe-Ekimo-1920), using the project's `tools/haven-calibrate` script.
+
+![Haven calibration report: 99.7-99.9% match on post-Cosmos systems](docs/haven-calibration.png) On systems logged since the Cosmos update (10 Aug 2026, ~12,000-15,000 per field):
+
+| Field | Match |
+|---|---:|
+| Star colour | 99.7% |
+| Dominant race | 99.9% |
+| Economy type | 99.8% |
+| Wealth tier | 99.9% |
+| Conflict level | 99.9% |
+| Status (normal / uncharted / pirate / abandoned) | 97.7%, ~99.9% excluding a known batch of older Haven Extractor uploads that missed the abandoned flag |
+
+Older (pre-Cosmos) records score 91-96%, with errors spread evenly in every direction -- consistent with stale or mis-entered data rather than a generator fault. The reverse-engineering credit belongs to hadsh/nms_namegen (and Stuart Coyle / GoodGuysFree before it); this check confirms it at a much larger scale.
+
+What this does **not** cover: planet-level data (biomes, planet names), spectral class digits, the specific economy word shown within a type (e.g. "Ore Processing" vs "Metal Processing" -- both Advanced Materials), and sell/buy percentages.
+
 ## Known limitations
 
 - **Planet names** are a plausible, unverified reverse-engineering guess. Star type, region names, and system names were validated against a real corpus; planet naming was not. `nms_namegen`'s own README says the same.

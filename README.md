@@ -179,6 +179,10 @@ Older (pre-Cosmos) records score 91-96%, with errors spread evenly in every dire
 
 What this does **not** cover: planet-level data (biomes, planet names), spectral class digits, the specific economy word shown within a type (e.g. "Ore Processing" vs "Metal Processing" -- both Advanced Materials), and sell/buy percentages.
 
+## For nms_namegen (hadsh)
+
+[`nms_namegen-findings/`](nms_namegen-findings/) has the sell%/buy% formula written up for the original Python `nms_namegen`: a drop-in [`sell_buy.py`](nms_namegen-findings/sell_buy.py) (uses its `PRNG`, `CONST_A`, `CONST_B`), the [write-up and scoreboard](nms_namegen-findings/README.md), and [`sell_buy_check.json`](nms_namegen-findings/sell_buy_check.json) (all 1,444 player-recorded systems with predicted vs recorded values).
+
 ## Known limitations
 
 - **Planet names** are a plausible, unverified reverse-engineering guess. Star type, region names, and system names were validated against a real corpus; planet naming was not. `nms_namegen`'s own README says the same.
